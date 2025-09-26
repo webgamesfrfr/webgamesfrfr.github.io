@@ -81,13 +81,14 @@
             return parts;
         }
         Promise.all([
-            mergeFiles(getParts("Build/ultrakill.data.unityweb", 1, 4))
-        ]).then(([dataUrl]) => {
+            mergeFiles(getParts("Build/ultrakill.data.unityweb", 1, 4)),
+            mergeFiles(getParts("Build/ultrakill.wasm.unityweb", 1, 2))
+        ]).then(([dataUrl, wasmurl]) => {
             document.querySelector("#unity-canvas").hidden = false;
             createUnityInstance(document.querySelector("#unity-canvas"), {
                 dataUrl: dataUrl,
                 frameworkUrl: "Build/ultrakill.framework.js.unityweb",
-                codeUrl: "Build/ultrakill.wasm.unityweb",
+                codeUrl: wasmurl,
                 streamingAssetsUrl: "StreamingAssets",
                 companyName: "Hakita and Cake Logic",
                 productName: "ULTRAKILL",
