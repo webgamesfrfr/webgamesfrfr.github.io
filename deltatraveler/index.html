@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html lang="en-us">
-  <head>
+<head>
     <base href="https://cdn.jsdelivr.net/gh/genizy/web-port@main/deltatraveler/">
     <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Unity Web Player | DELTATRAVELER</title>
-        <style>
-        html,
-        body {
+    <style>
+        html, body {
             margin: 0;
             padding: 0;
             border: 0;
@@ -16,69 +14,64 @@
             overflow: hidden;
             background: #1F1F20;
         }
-
         #unity-canvas {
-            width: 100%;
-            height: 100%;
             display: block;
+            background: #1F1F20;
         }
     </style>
-  </head>
-  <body style="text-align: center; padding: 0; border: 0; margin: 0;">
-    <div id="loading-text" style="color: white; font-size: 48px; font-family: cursive; text-align: center; margin-top: 20px;"> LOADING... </div>
-    <canvas id="unity-canvas" tabindex="-1" style="background: #1F1F20"></canvas>
+</head>
+<body>
+    <div id="loading-text" style="color: white; font-size: 48px; font-family: cursive; text-align: center; margin-top: 20px;">LOADING...</div>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    
     <script src="Build/DELTAWEBGL.loader.js"></script>
     <script>
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        // Mobile device style: fill the whole browser client area with the game canvas:
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
-        document.getElementsByTagName('head')[0].appendChild(meta);
+        const canvas = document.querySelector("#unity-canvas");
 
-        var canvas = document.querySelector("#unity-canvas");
-        canvas.style.width = "100%";
-        canvas.style.height = "100%";
-        canvas.style.position = "fixed";
+        function resizeCanvas() {
+            canvas.style.width = window.innerWidth + "px";
+            canvas.style.height = window.innerHeight + "px";
+	    canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            canvas.style.position = "fixed";
 
-        document.body.style.textAlign = "left";
-      }
+            // For mobile viewport scaling
+            let meta = document.querySelector("meta[name=viewport]");
+            if (!meta) {
+                meta = document.createElement('meta');
+                meta.name = 'viewport';
+                document.head.appendChild(meta);
+            }
+            meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('load', resizeCanvas);
 
         const loadingText = document.querySelector("#loading-text");
-        let totalBytes = 0;
+        let totalBytes = 256389429;
         let loadedBytes = 0;
 
         function formatSize(bytes) {
-            if (bytes > 1024 * 1024 * 1024) {
-                return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
-            } else if (bytes > 1024 * 1024) {
-                return (bytes / (1024 * 1024)).toFixed(2) + " MB";
-            } else if (bytes > 1024) {
-                return (bytes / 1024).toFixed(2) + " KB";
-            } else {
-                return bytes + " B";
-            }
+            if (bytes > 1024*1024*1024) return (bytes / (1024*1024*1024)).toFixed(2) + " GB";
+            if (bytes > 1024*1024) return (bytes / (1024*1024)).toFixed(2) + " MB";
+            if (bytes > 1024) return (bytes / 1024).toFixed(2) + " KB";
+            return bytes + " B";
         }
+
         async function getSize(url) {
             try {
-                const res = await fetch(url, {
-                    method: "HEAD"
-                });
+                const res = await fetch(url, { method: "HEAD" });
                 return parseInt(res.headers.get("Content-Length") || "0", 10);
-            } catch {
-                return 0;
-            }
+            } catch { return 0; }
         }
+
         async function fetchWithProgress(url) {
             const response = await fetch(url);
             const reader = response.body.getReader();
-            let chunks = [];
-            let received = 0;
+            let chunks = [], received = 0;
             while (true) {
-                const {
-                    done,
-                    value
-                } = await reader.read();
+                const { done, value } = await reader.read();
                 if (done) break;
                 received += value.length;
                 loadedBytes += value.length;
@@ -96,6 +89,7 @@
             }
             return fullBuffer.buffer;
         }
+
         async function mergeFiles(parts) {
             const buffers = await Promise.all(parts.map(fetchWithProgress));
             return URL.createObjectURL(new Blob(buffers));
@@ -103,36 +97,37 @@
 
         function getParts(file, count) {
             let parts = [];
-            for (let i = 1; i <= count; i++) {
-                parts.push(file + ".part" + i);
-            }
+            for (let i = 1; i <= count; i++) parts.push(file + ".part" + i);
             return parts;
         }
+
         (async () => {
             const dataParts = getParts("Build/DELTAWEBGL.data.unityweb", 9);
             const wasmParts = getParts("Build/DELTAWEBGL.wasm.unityweb", 5);
-            const allParts = [...dataParts, ...wasmParts];
-            const sizes = await Promise.all(allParts.map(getSize));
-            totalBytes = sizes.reduce((a, b) => a + b, 0);
             const [dataUrl, wasmUrl] = await Promise.all([
                 mergeFiles(dataParts),
                 mergeFiles(wasmParts)
             ]);
-      createUnityInstance(document.querySelector("#unity-canvas"), {
-        arguments: [],
-        dataUrl: dataParts,
-        frameworkUrl: "Build/DELTAWEBGL.framework.js.unityweb",
-        codeUrl: wasmParts,
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "RynoGG",
-        productName: "DELTATRAVELER",
-        productVersion: "3.0.12.0111",
-        // matchWebGLToCanvasSize: false, // Uncomment this to separately control WebGL canvas render size and DOM element size.
-        // devicePixelRatio: 1, // Uncomment this to override low DPI rendering on high DPI displays.
-      }).then(() => {
+setInterval(() => {
+  resizeCanvas();
+}, 1000);
+
+            createUnityInstance(canvas, {
+                arguments: [],
+                dataUrl: dataUrl,
+                frameworkUrl: "Build/DELTAWEBGL.framework.js.unityweb",
+                codeUrl: wasmUrl,
+                streamingAssetsUrl: "StreamingAssets",
+                companyName: "RynoGG",
+                productName: "DELTATRAVELER",
+                productVersion: "3.0.12.0111",
+    // optional: set fullscreen scaling mode
+    matchWebGLToCanvasSize: true
+            }).then(() => {
                 loadingText.remove();
+resizeCanvas();
             });
         })();
     </script>
-  </body>
+</body>
 </html>
